@@ -252,4 +252,6 @@ export const DEMO_ANALYSIS: AnalysisResult = {
       trend: "stable",
     },
   },
+  dataConfidence: "high",
+  dataSourceNote: "Demo data -- sample analysis for demonstration",
 };

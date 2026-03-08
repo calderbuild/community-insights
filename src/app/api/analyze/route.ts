@@ -1,11 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callAI } from "@/lib/ai";
-import type { AnalysisResult, ScrapeResult } from "@/lib/types";
+import type { AnalysisResult, ScrapeResult, DataQuality } from "@/lib/types";
+
+function computeConfidence(
+  quality: DataQuality | undefined,
+  manualInput: string | undefined
+): { confidence: "high" | "medium" | "low"; note: string } {
+  const postsScraped = quality?.postsScraped ?? 0;
+  const manualLines = manualInput
+    ? manualInput.split("\n").filter((l) => l.trim().length > 10).length
+    : 0;
+  const totalPosts = postsScraped + manualLines;
+
+  if (totalPosts >= 20)
+    return { confidence: "high", note: `Based on ${totalPosts} real posts` };
+  if (totalPosts >= 5)
+    return {
+      confidence: "medium",
+      note: `Based on ${totalPosts} posts + AI estimates`,
+    };
+  return { confidence: "low", note: "AI estimate from community description" };
+}
 
 export async function POST(req: NextRequest) {
   try {
     const scrapeData: ScrapeResult & { manualInput?: string } =
       await req.json();
+
+    // Limit manualInput to 100K characters
+    if (scrapeData.manualInput && scrapeData.manualInput.length > 100_000) {
+      scrapeData.manualInput = scrapeData.manualInput.slice(0, 100_000);
+    }
 
     const contextParts: string[] = [];
     contextParts.push(`Community: ${scrapeData.communityName}`);
@@ -113,6 +138,37 @@ Make the analysis specific and actionable, not generic.`;
         positivity: 75,
       };
     }
+
+    // Validate and provide defaults for core fields
+    if (!analysis.sentiment) {
+      analysis.sentiment = { positive: 50, neutral: 35, negative: 15 };
+    }
+    if (!Array.isArray(analysis.topTopics)) {
+      analysis.topTopics = [];
+    }
+    if (!Array.isArray(analysis.keyInsights)) {
+      analysis.keyInsights = [];
+    }
+    if (!Array.isArray(analysis.memberHighlights)) {
+      analysis.memberHighlights = [];
+    }
+    if (!Array.isArray(analysis.recommendations)) {
+      analysis.recommendations = [];
+    }
+    if (typeof analysis.totalPosts !== "number") {
+      analysis.totalPosts = 0;
+    }
+    if (typeof analysis.activeMembersCount !== "number") {
+      analysis.activeMembersCount = 0;
+    }
+
+    // Deterministic confidence computation
+    const { confidence, note } = computeConfidence(
+      scrapeData.dataQuality,
+      scrapeData.manualInput
+    );
+    analysis.dataConfidence = confidence;
+    analysis.dataSourceNote = note;
 
     return NextResponse.json(analysis);
   } catch (error) {

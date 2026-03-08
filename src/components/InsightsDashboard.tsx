@@ -33,6 +33,7 @@ import {
   Calendar,
   ChevronDown,
   ChevronUp,
+  Info,
 } from "lucide-react";
 
 const CHART_COLORS = [
@@ -124,6 +125,22 @@ export default function InsightsDashboard({
           Export Report
         </button>
       </div>
+
+      {/* Data Confidence Badge */}
+      {data.dataConfidence && (
+        <div
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm ${
+            data.dataConfidence === "high"
+              ? "bg-emerald-500/[0.06] border-emerald-500/15 text-emerald-400"
+              : data.dataConfidence === "medium"
+                ? "bg-amber-500/[0.06] border-amber-500/15 text-amber-400"
+                : "bg-orange-500/[0.06] border-orange-500/15 text-orange-400"
+          }`}
+        >
+          <Info className="w-4 h-4 flex-shrink-0" />
+          <span>{data.dataSourceNote || "AI-generated analysis"}</span>
+        </div>
+      )}
 
       {/* Stats Overview */}
       <div

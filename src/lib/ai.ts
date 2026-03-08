@@ -51,7 +51,9 @@ function directCall(url: URL, body: string): Promise<string> {
             return;
           }
           if (res.statusCode !== 200) {
-            reject(new Error(`API ${res.statusCode}: ${data.slice(0, 200)}`));
+            if (res.statusCode === 401) reject(new Error("AI service authentication failed"));
+            else if (res.statusCode === 429) reject(new Error("AI service rate limited, please try again later"));
+            else reject(new Error(`AI service error (${res.statusCode})`));
             return;
           }
           try {
@@ -63,7 +65,7 @@ function directCall(url: URL, body: string): Promise<string> {
             }
             resolve(content);
           } catch {
-            reject(new Error(`Parse failed: ${data.slice(0, 200)}`));
+            reject(new Error("Failed to parse AI response"));
           }
         });
       }

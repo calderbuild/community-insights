@@ -13,8 +13,10 @@ import {
   Brain,
   FileText,
   Upload,
+  Info,
 } from "lucide-react";
 import dynamic from "next/dynamic";
+import Papa from "papaparse";
 import type { AnalysisResult, ScrapeResult } from "@/lib/types";
 import { EXAMPLE_POSTS } from "@/lib/example-data";
 
@@ -44,11 +46,16 @@ export default function Home() {
   const [analysis2, setAnalysis2] = useState<AnalysisResult | null>(null);
   const [communityName1, setCommunityName1] = useState("");
   const [communityName2, setCommunityName2] = useState("");
+  const [privateDetected, setPrivateDetected] = useState(false);
+  const [customCommunityName, setCustomCommunityName] = useState("");
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const urlTrimmed = url.trim();
   const hasUrl = urlTrimmed.length > 0;
   const isUrlValid = !hasUrl || urlTrimmed.includes("skool.com");
+  const url2Trimmed = url2.trim();
+  const hasUrl2 = url2Trimmed.length > 0;
+  const isUrl2Valid = !hasUrl2 || url2Trimmed.includes("skool.com");
   const hasData = manualInput.trim().length > 0 || csvFile !== null;
   const canAnalyze = hasUrl || hasData;
 
@@ -59,37 +66,33 @@ export default function Home() {
     }
 
     const text = await file.text();
-    const lines = text.trim().split("\n");
-    if (lines.length < 2) {
+    if (text.trim().split("\n").length < 2) {
       setError("CSV file is empty or has no data rows");
       return;
     }
 
-    const headers = lines[0].toLowerCase().split(",").map((h) => h.trim());
-    if (!headers.includes("content")) {
+    const parsed = Papa.parse<Record<string, string>>(text, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (h) => h.trim().toLowerCase(),
+    });
+
+    if (!parsed.meta.fields?.includes("content")) {
       setError(
         'CSV must include a "content" column. Expected: author,content,likes,comments'
       );
       return;
     }
 
-    const contentIdx = headers.indexOf("content");
-    const authorIdx = headers.indexOf("author");
-    const likesIdx = headers.indexOf("likes");
-    const commentsIdx = headers.indexOf("comments");
-
-    const posts = lines
-      .slice(1)
-      .filter((line) => line.trim())
-      .map((line) => {
-        const cols = line.split(",").map((c) => c.trim());
-        const author = authorIdx >= 0 ? cols[authorIdx] : "Member";
-        const content = cols[contentIdx] || "";
-        const likes = likesIdx >= 0 ? parseInt(cols[likesIdx]) || 0 : 0;
-        const comments =
-          commentsIdx >= 0 ? parseInt(cols[commentsIdx]) || 0 : 0;
+    const posts = parsed.data
+      .map((row) => {
+        const author = row["author"]?.trim() || "Member";
+        const content = row["content"]?.trim() || "";
+        const likes = parseInt(row["likes"]) || 0;
+        const comments = parseInt(row["comments"]) || 0;
         return `[${author}] ${content} (${likes} likes, ${comments} comments)`;
       })
+      .filter((line) => line.includes("]") && line.length > 20)
       .join("\n\n");
 
     setManualInput(posts);
@@ -117,9 +120,14 @@ export default function Home() {
         throw new Error(err.error || "Failed to scrape community");
       }
       scrapeData = await scrapeRes.json();
+
+      // Detect private community
+      if (scrapeData.dataQuality?.isPrivate) {
+        setPrivateDetected(true);
+      }
     } else {
       scrapeData = {
-        communityName: "Community Analysis",
+        communityName: customCommunityName || "Community Analysis",
         description: "Analysis based on provided community data",
         memberCount: "Unknown",
         posts: [],
@@ -151,6 +159,7 @@ export default function Home() {
     setError("");
     setAnalysis(null);
     setAnalysis2(null);
+    setPrivateDetected(false);
 
     try {
       if (compareMode && url2.trim()) {
@@ -388,7 +397,7 @@ export default function Home() {
               </div>
               <button
                 onClick={handleAnalyze}
-                disabled={loading || !canAnalyze || (hasUrl && !isUrlValid)}
+                disabled={loading || !canAnalyze || (hasUrl && !isUrlValid) || (hasUrl2 && !isUrl2Valid)}
                 className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 disabled:from-gray-800 disabled:to-gray-800 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2 disabled:cursor-not-allowed disabled:text-gray-500 cursor-pointer focus-ring shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 disabled:shadow-none"
               >
                 {loading ? (
@@ -414,14 +423,53 @@ export default function Home() {
                   onChange={(e) => setUrl2(e.target.value)}
                   placeholder="Community B URL"
                   aria-label="Community B URL"
-                  className="w-full pl-10 pr-4 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/30 input-glow transition-all"
+                  className={`w-full pl-10 pr-4 py-2.5 bg-white/[0.03] border rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/30 input-glow transition-all ${
+                    hasUrl2 && !isUrl2Valid
+                      ? "border-red-500/50"
+                      : "border-white/[0.06]"
+                  }`}
                   onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
                 />
+                {hasUrl2 && !isUrl2Valid && (
+                  <p
+                    role="alert"
+                    className="text-red-400 text-[11px] mt-1 ml-1"
+                  >
+                    Please enter a valid skool.com URL
+                  </p>
+                )}
               </div>
             )}
 
             {/* Divider */}
             <div className="divider-gradient my-4" />
+
+            {/* Private community detection */}
+            {privateDetected && (
+              <div className="mb-3 flex items-start gap-2 px-3.5 py-2.5 bg-amber-500/[0.06] border border-amber-500/15 rounded-xl">
+                <Info className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-400/90">
+                  This appears to be a private community. Paste your posts below for a more accurate analysis.
+                </p>
+              </div>
+            )}
+
+            {/* Community Name for manual-only mode */}
+            {!hasUrl && (
+              <div className="mb-3">
+                <label htmlFor="community-name" className="text-xs text-gray-400 mb-1.5 block">
+                  Community Name
+                </label>
+                <input
+                  id="community-name"
+                  type="text"
+                  value={customCommunityName}
+                  onChange={(e) => setCustomCommunityName(e.target.value)}
+                  placeholder="e.g. My Skool Community"
+                  className="w-full px-3.5 py-2 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/30 input-glow transition-all"
+                />
+              </div>
+            )}
 
             {/* Always-visible textarea */}
             <div className="mb-3">
@@ -430,7 +478,7 @@ export default function Home() {
                   htmlFor="manual-input"
                   className="text-xs text-gray-400"
                 >
-                  Paste community posts for deeper analysis
+                  {compareMode ? "Community A posts" : "Paste community posts for deeper analysis"}
                 </label>
                 <button
                   onClick={() => {
@@ -449,10 +497,29 @@ export default function Home() {
                   setManualInput(e.target.value);
                   setCsvFile(null);
                 }}
-                placeholder="[Author Name] Post content here (likes, comments)..."
+                placeholder={"[Author Name] Post content here (likes, comments)...\n\nTip: Copy posts from your Skool community feed and paste them here. Include author names, post text, and engagement numbers for best results."}
                 className="w-full px-3.5 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/30 input-glow transition-all resize-none h-28"
               />
             </div>
+
+            {/* Second textarea for comparison mode */}
+            {compareMode && (
+              <div className="mb-3">
+                <label
+                  htmlFor="manual-input-2"
+                  className="text-xs text-gray-400 mb-2 block"
+                >
+                  Community B posts
+                </label>
+                <textarea
+                  id="manual-input-2"
+                  value={manualInput2}
+                  onChange={(e) => setManualInput2(e.target.value)}
+                  placeholder="[Author Name] Post content for Community B..."
+                  className="w-full px-3.5 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/30 input-glow transition-all resize-none h-28"
+                />
+              </div>
+            )}
 
             {/* CSV Upload */}
             <div className="flex items-center gap-3">
@@ -606,6 +673,7 @@ export default function Home() {
             />
           )}
           {analysis && !analysis2 && <InsightsDashboard data={analysis} />}
+          {!analysis && analysis2 && <InsightsDashboard data={analysis2} />}
         </div>
       </main>
 

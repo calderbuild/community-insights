@@ -64,6 +64,17 @@ export interface AnalysisResult {
   activeMembersCount: number;
   growthPlaybook?: PlaybookWeek[];
   topicDetails?: Record<string, TopicDetail>;
+  dataConfidence?: "high" | "medium" | "low";
+  dataSourceNote?: string;
+}
+
+export interface DataQuality {
+  postsScraped: number;
+  manualPostsCount: number;
+  hasDescription: boolean;
+  hasMemberCount: boolean;
+  source: "nextdata" | "playwright" | "cheerio" | "manual" | "mixed";
+  isPrivate: boolean;
 }
 
 export interface ScrapeResult {
@@ -71,4 +82,5 @@ export interface ScrapeResult {
   description: string;
   memberCount: string;
   posts: CommunityPost[];
+  dataQuality?: DataQuality;
 }
