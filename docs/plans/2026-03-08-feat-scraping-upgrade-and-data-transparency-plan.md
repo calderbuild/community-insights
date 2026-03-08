@@ -393,7 +393,7 @@ Manual input 直接拼接到 LLM prompt 中。缓解方案：
 - [x] Scrape 返回 `isPrivate: true` 时显示 inline 提示
 - [x] Manual-input-only 模式有 Community Name 输入框
 - [x] Comparison mode 有第二个 textarea
-- [ ] Prompt 结构化分离（system/user messages）
+- [x] Prompt 结构化分离（system/user messages）
 - [x] manualInput 服务端长度限制 (100K)
 
 ### Phase 1: Headless Scraping

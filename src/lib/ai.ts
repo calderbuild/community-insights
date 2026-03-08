@@ -6,12 +6,19 @@ const API_KEY = (process.env.AI_API_KEY || "").trim();
 const BASE_URL = (process.env.AI_BASE_URL || "https://newapi.deepwisdom.ai/v1").trim();
 const MODEL = process.env.AI_MODEL || "claude-sonnet-4-20250514";
 
-export async function callAI(prompt: string): Promise<string> {
+export type AIMessage = { role: "system" | "user"; content: string };
+
+export async function callAI(
+  promptOrMessages: string | AIMessage[]
+): Promise<string> {
   const url = new URL(`${BASE_URL}/chat/completions`);
+  const messages = typeof promptOrMessages === "string"
+    ? [{ role: "user" as const, content: promptOrMessages }]
+    : promptOrMessages;
   const body = JSON.stringify({
     model: MODEL,
     max_tokens: 8192,
-    messages: [{ role: "user", content: prompt }],
+    messages,
   });
 
   // Try direct HTTPS first (works on Vercel and environments without proxy)

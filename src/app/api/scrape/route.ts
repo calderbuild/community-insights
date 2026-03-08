@@ -3,6 +3,7 @@ import * as cheerio from "cheerio";
 import type { CommunityPost, ScrapeResult, DataQuality } from "@/lib/types";
 
 const SKOOL_SLUG_RE = /^\/([a-zA-Z0-9-]+)/;
+const SKOOL_PROFILE_RE = /^\/@/;
 const MEMBER_COUNT_RE = /([\d,.]+)\s*members?/i;
 const BUILD_ID_RE = /"buildId"\s*:\s*"([^"]+)"/;
 
@@ -97,6 +98,20 @@ export async function POST(req: NextRequest) {
 
     const slug = validateSkoolUrl(url);
     if (!slug) {
+      // Check if it's a profile URL for a better error message
+      try {
+        const parsed = new URL(url);
+        if (
+          (parsed.hostname === "skool.com" || parsed.hostname === "www.skool.com") &&
+          SKOOL_PROFILE_RE.test(parsed.pathname)
+        ) {
+          return NextResponse.json(
+            { error: "Profile URLs are not supported. Please enter a community URL (e.g. https://www.skool.com/your-community)" },
+            { status: 400 }
+          );
+        }
+      } catch { /* ignore parse errors */ }
+
       return NextResponse.json(
         {
           error:

@@ -32,33 +32,9 @@ export async function POST(req: NextRequest) {
       scrapeData.manualInput = scrapeData.manualInput.slice(0, 100_000);
     }
 
-    const contextParts: string[] = [];
-    contextParts.push(`Community: ${scrapeData.communityName}`);
-    contextParts.push(`Description: ${scrapeData.description}`);
-    contextParts.push(`Members: ${scrapeData.memberCount}`);
-
-    if (scrapeData.posts && scrapeData.posts.length > 0) {
-      contextParts.push(
-        `\nPosts (${scrapeData.posts.length} total):\n` +
-          scrapeData.posts
-            .slice(0, 50)
-            .map(
-              (p, i) =>
-                `${i + 1}. [${p.author}] ${p.content.slice(0, 200)} (${p.likes} likes, ${p.comments} comments)`
-            )
-            .join("\n")
-      );
-    }
-
     const hasPostData =
       (scrapeData.posts && scrapeData.posts.length > 0) ||
       !!scrapeData.manualInput;
-
-    if (scrapeData.manualInput) {
-      contextParts.push(
-        `\nThe following are real community posts provided by the community manager:\n${scrapeData.manualInput}`
-      );
-    }
 
     const topicDetailsInstruction = hasPostData
       ? `"topicDetails": {
@@ -71,9 +47,8 @@ export async function POST(req: NextRequest) {
   },`
       : "";
 
-    const prompt = `You are an expert community analyst specializing in online communities. Analyze the following community data and provide comprehensive, specific insights.
-
-${contextParts.join("\n")}
+    // System message: analysis instructions (untouched by user input)
+    const systemPrompt = `You are an expert community analyst specializing in online communities. Analyze the provided community data and return comprehensive, specific insights.
 
 Respond with a JSON object (no markdown, no code fences, just raw JSON) matching this exact structure:
 {
@@ -113,7 +88,35 @@ ${hasPostData ? "For topicDetails, provide drill-down data for each topic in top
 Base your analysis on all available data. If post data is provided, cite specific posts, members, and patterns.
 Make the analysis specific and actionable, not generic.`;
 
-    const responseText = await callAI(prompt);
+    // User message: community data only (separated from instructions)
+    const dataParts: string[] = [];
+    dataParts.push(`Community: ${scrapeData.communityName}`);
+    dataParts.push(`Description: ${scrapeData.description}`);
+    dataParts.push(`Members: ${scrapeData.memberCount}`);
+
+    if (scrapeData.posts && scrapeData.posts.length > 0) {
+      dataParts.push(
+        `\nPosts (${scrapeData.posts.length} total):\n` +
+          scrapeData.posts
+            .slice(0, 50)
+            .map(
+              (p, i) =>
+                `${i + 1}. [${p.author}] ${p.content.slice(0, 200)} (${p.likes} likes, ${p.comments} comments)`
+            )
+            .join("\n")
+      );
+    }
+
+    if (scrapeData.manualInput) {
+      dataParts.push(
+        `\nCommunity posts provided by the community manager:\n${scrapeData.manualInput}`
+      );
+    }
+
+    const responseText = await callAI([
+      { role: "system", content: systemPrompt },
+      { role: "user", content: dataParts.join("\n") },
+    ]);
 
     let analysis: AnalysisResult;
     try {

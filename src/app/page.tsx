@@ -52,10 +52,12 @@ export default function Home() {
 
   const urlTrimmed = url.trim();
   const hasUrl = urlTrimmed.length > 0;
-  const isUrlValid = !hasUrl || urlTrimmed.includes("skool.com");
+  const isProfileUrl = hasUrl && /skool\.com\/@/.test(urlTrimmed);
+  const isUrlValid = !hasUrl || (urlTrimmed.includes("skool.com") && !isProfileUrl);
   const url2Trimmed = url2.trim();
   const hasUrl2 = url2Trimmed.length > 0;
-  const isUrl2Valid = !hasUrl2 || url2Trimmed.includes("skool.com");
+  const isProfile2Url = hasUrl2 && /skool\.com\/@/.test(url2Trimmed);
+  const isUrl2Valid = !hasUrl2 || (url2Trimmed.includes("skool.com") && !isProfile2Url);
   const hasData = manualInput.trim().length > 0 || csvFile !== null;
   const canAnalyze = hasUrl || hasData;
 
@@ -391,7 +393,9 @@ export default function Home() {
                     role="alert"
                     className="text-red-400 text-[11px] mt-1 ml-1"
                   >
-                    Please enter a valid skool.com URL
+                    {isProfileUrl
+                      ? "Profile URLs are not supported. Please enter a community URL"
+                      : "Please enter a valid skool.com URL"}
                   </p>
                 )}
               </div>
@@ -435,7 +439,9 @@ export default function Home() {
                     role="alert"
                     className="text-red-400 text-[11px] mt-1 ml-1"
                   >
-                    Please enter a valid skool.com URL
+                    {isProfile2Url
+                      ? "Profile URLs are not supported. Please enter a community URL"
+                      : "Please enter a valid skool.com URL"}
                   </p>
                 )}
               </div>
