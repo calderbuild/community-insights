@@ -240,6 +240,15 @@ export async function POST(req: NextRequest) {
       },
     };
 
+    console.log("[scrape]", {
+      slug,
+      source,
+      postsFound: posts.length,
+      hasDescription: description !== `A Skool community at skool.com/${slug}`,
+      memberCount,
+      isPrivate,
+    });
+
     return NextResponse.json(result);
   } catch (error) {
     console.error("Scrape error:", error);

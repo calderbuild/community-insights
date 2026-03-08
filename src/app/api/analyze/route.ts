@@ -173,6 +173,15 @@ Make the analysis specific and actionable, not generic.`;
     analysis.dataConfidence = confidence;
     analysis.dataSourceNote = note;
 
+    console.log("[analyze]", {
+      community: scrapeData.communityName,
+      confidence,
+      scrapedPosts: scrapeData.posts?.length ?? 0,
+      hasManualInput: !!scrapeData.manualInput,
+      topicsGenerated: analysis.topTopics?.length ?? 0,
+      healthScore: analysis.healthScore?.overall,
+    });
+
     return NextResponse.json(analysis);
   } catch (error) {
     console.error("Analysis error:", error);
